@@ -1,0 +1,9 @@
+[package]
+name = "cde_notification_center"
+version = "0.1.0"
+authors = ["cafehaine <kilian.guillaume@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
