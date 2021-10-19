@@ -1,74 +1,14 @@
-use std::path::Path;
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
 
-use subprocess::Exec;
+use subprocess::{Exec, ExitStatus};
 use swayipc::{reply::Output, Connection, Error as SwayError};
 
-struct AutokanshiConfig {
-    screen_layout_editor: String,
-}
+use cde_config::load_config;
 
-impl AutokanshiConfig {
-    fn load() -> AutokanshiConfig {
-        println!("    TODO!");
-        AutokanshiConfig {
-            screen_layout_editor: String::from("wdisplays"),
-        } //TODO
-    }
-}
-
-struct KanshiDirective {
-    words: Vec<String>,
-}
-
-struct KanshiProfile {
-    name: Option<String>,
-    directives: Vec<KanshiDirective>,
-}
-
-impl KanshiProfile {
-    fn from_layout(screen_layout: &Vec<Output>) -> KanshiProfile {
-        println!("    TODO!");
-        KanshiProfile {
-            name: None,
-            directives: Vec::new(), //TODO
-        }
-    }
-}
-
-struct KanshiConfig<'a> {
-    config_path: &'a Path,
-    profiles: Vec<KanshiProfile>,
-}
-
-impl KanshiConfig<'_> {
-    fn append_profile(&self, profile: KanshiProfile) -> () {
-        println!("    TODO!");
-        //TODO
-    }
-
-    fn detect_profile(&self, layout: &Vec<Output>) -> Option<&KanshiProfile> {
-        println!("    TODO!");
-        None //TODO
-    }
-
-    fn replace_profile(&self, to_replace: &KanshiProfile, profile: KanshiProfile) -> () {
-        println!("    TODO!");
-        //TODO
-    }
-
-    fn save(&self) -> () {
-        println!("    TODO!");
-        //TODO
-    }
-
-    fn load() -> KanshiConfig<'static> {
-        println!("    TODO!");
-        KanshiConfig {
-            config_path: Path::new(""),
-            profiles: Vec::new(),
-        } // TODO
-    }
-}
+mod kanshiconfig;
+use kanshiconfig::{KanshiConfig, KanshiProfile};
 
 fn fetch_screen_layout(conn: &mut Connection) -> Result<Vec<Output>, SwayError> {
     let outputs = conn.get_outputs()?;
@@ -76,47 +16,47 @@ fn fetch_screen_layout(conn: &mut Connection) -> Result<Vec<Output>, SwayError> 
 }
 
 fn restart_kanshi() -> () {
-    println!("    TODO!");
-    //TODO
+    // TODO use varlink API directly?
+    match Exec::shell("kanshictl reload").join() {
+        Ok(ExitStatus::Exited(0)) => (),
+        Ok(status) => println!("Could not restart kanshi: {:?}", status),
+        Err(err) => println!("Couldn't restart kanshi: {:?}", err),
+    }
 }
 
 fn main() {
-    println!("Loading autokanshi's configuration");
-    let autokanshi_config = AutokanshiConfig::load();
+    println!("Loading cde's configuration");
+    let cde_config = load_config();
 
     println!("Starting the screen layout editor");
-    match Exec::shell(autokanshi_config.screen_layout_editor).join() {
-        Ok(_) => {}
-        Err(err) => {
-            panic!("Could not start screen layout editor: {:?}", err)
-        }
+    match Exec::shell(cde_config.autokanshi.screen_layout_editor).join() {
+        Ok(ExitStatus::Exited(0)) => (),
+        Ok(status) => panic!("Screen layout editor exited with error: {:?}", status),
+        Err(err) => panic!("Could not start screen layout editor: {:?}", err),
     }
 
     println!("Connecting to sway's IPC");
     let mut ipc_conn = match Connection::new() {
         Ok(value) => value,
-        Err(err) => {
-            panic!("Cannot connect to sway's IPC: {:?}", err.name())
-        }
+        Err(err) => panic!("Cannot connect to sway's IPC: {:?}", err.name()),
     };
 
     println!("Fetching the current screen layout");
     let screen_layout = match fetch_screen_layout(&mut ipc_conn) {
         Ok(value) => value,
-        Err(err) => {
-            panic!("Couldn't fetch the current screen layout: {:?}", err.name())
-        }
+        Err(err) => panic!("Couldn't fetch the current screen layout: {:?}", err.name()),
     };
 
     println!("Loading the kanshi config");
-    let config = KanshiConfig::load();
+    let mut config = KanshiConfig::load();
 
     println!("Detecting matching profile");
     let new_profile = KanshiProfile::from_layout(&screen_layout);
-    match config.detect_profile(&screen_layout) {
-        Some(profile) => {
+    let detected_profile = config.detect_profile(&screen_layout);
+    match detected_profile {
+        Some(profile_index) => {
             println!("Overriding previous profile");
-            config.replace_profile(&profile, new_profile);
+            config.replace_profile(profile_index, new_profile);
         }
         None => {
             println!("Creating new profile");

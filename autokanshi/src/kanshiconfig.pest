@@ -1,0 +1,30 @@
+WHITESPACE = _{
+    " " | "\t"
+}
+
+NEWLINE = _{
+    ("#" ~ (!"\n" ~ ANY)*)? ~ ("\r\n" | "\n")
+}
+
+word = @{
+    "'"  ~ ( "\\'"  | (!"'"  ~ ANY) )* ~ "'"  |
+    "\"" ~ ( "\\\"" | (!"\"" ~ ANY) )* ~ "\"" |
+    (!(" "|"\t"|"{"|"}"|"\n"|"\r"|"\""|"'") ~ ANY)+
+}
+
+directive_start = {
+    "output" | "exec"
+}
+
+directive = {
+    directive_start ~(word)+
+}
+
+profile = {
+    "profile" ~ word ~ "{" ~ NEWLINE+ ~ (directive ~ NEWLINE+)* ~ "}" |
+    "profile" ~ "{" ~ NEWLINE+ ~ (directive ~ NEWLINE+)* ~ "}"
+}
+
+file = _{
+    SOI ~ NEWLINE* ~ (profile ~ NEWLINE+)* ~ profile? ~ EOI
+}
