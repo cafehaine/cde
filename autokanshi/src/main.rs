@@ -15,7 +15,7 @@ fn fetch_screen_layout(conn: &mut Connection) -> Result<Vec<Output>, SwayError> 
     Result::Ok(outputs)
 }
 
-fn restart_kanshi() -> () {
+fn restart_kanshi() {
     // TODO use varlink API directly?
     match Exec::shell("kanshictl reload").join() {
         Ok(ExitStatus::Exited(0)) => (),
