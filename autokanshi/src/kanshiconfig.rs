@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 use std::iter::FromIterator;
@@ -25,14 +26,16 @@ impl ToString for KanshiDirective {
     }
 }
 
+fn output_id(output: &Output) -> String {
+    format!("\"{} {} {}\"", output.make, output.model, output.serial)
+}
+
 impl KanshiDirective {
     fn from_output(output: &Output) -> Self {
         let mut words = vec![String::from("output")];
 
-        words.push(format!(
-            "\"{} {} {}\"",
-            output.make, output.model, output.serial
-        ));
+        // Output id
+        words.push(output_id(output));
 
         // Enable/disable
         words.push(match output.active {
@@ -114,11 +117,32 @@ impl KanshiProfile {
                 .map(|o| KanshiDirective::from_output(o)),
         );
         let now = Utc::now();
-        let name = format!("autokanshi_{}_{}_{}__{}_{}_{}", now.day(), now.month(), now.year(), now.hour(), now.minute(), now.second());
+        let name = format!(
+            "autokanshi_{}_{}_{}__{}_{}_{}",
+            now.day(),
+            now.month(),
+            now.year(),
+            now.hour(),
+            now.minute(),
+            now.second()
+        );
         KanshiProfile {
             name: Some(name),
             directives,
         }
+    }
+
+    pub fn get_screens(&self) -> HashSet<String> {
+        let mut output = HashSet::new();
+        for directive in &self.directives {
+            match directive.words[0].as_str() {
+                "output" => {
+                    output.insert(directive.words[1].clone());
+                }
+                _ => (),
+            }
+        }
+        output
     }
 }
 
@@ -212,13 +236,25 @@ impl KanshiConfig {
     }
 
     pub fn detect_profile(&self, layout: &Vec<Output>) -> Option<usize> {
-        println!("    TODO!");
-        None //TODO
+        let mut current_set = HashSet::new();
+
+        for output in layout.iter() {
+            current_set.insert(output_id(output));
+        }
+
+        for (index, profile) in self.profiles.iter().enumerate() {
+            if profile.get_screens() == current_set {
+                return Some(index);
+            }
+        }
+        None
     }
 
-    pub fn replace_profile(&mut self, to_replace: usize, profile: KanshiProfile) -> () {
+    pub fn replace_profile(&mut self, to_replace: usize, mut profile: KanshiProfile) -> () {
         // Not really optimised but not performance critical
         // The index will no longer be relevent
+        profile.name = self.profiles[to_replace].name.clone();
+        //TODO also copy 'exec' directives?
         self.profiles.remove(to_replace);
         self.profiles.push(profile);
     }
